@@ -42,6 +42,10 @@
 #pragma warning(disable: 4309)
 #endif
 
+#if defined(__GNUC__)
+#pragma GCC diagnostic ignored "-Wnarrowing"
+#endif
+
 
 static char bigchars[130][5] =
     {
