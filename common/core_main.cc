@@ -3142,12 +3142,12 @@ static void paste_programs(const char *buf) {
     }
 }
 
-void core_paste(const char *buf) {
+void core_paste(const char *buf, bool programs_only) {
     if (mode_interruptible != NULL)
         stop_interruptible();
     set_running(false);
 
-    if (flags.f.prgm_mode) {
+    if (flags.f.prgm_mode || programs_only) {
         paste_programs(buf);
     } else if (core_alpha_menu()) {
         char hpbuf[48];
@@ -3434,7 +3434,8 @@ void core_paste(const char *buf) {
         flags.f.message = 0;
         flags.f.two_line_message = 0;
     }
-    redisplay();
+    if (!programs_only)
+        redisplay();
 }
 
 void set_alpha_entry(bool state) {

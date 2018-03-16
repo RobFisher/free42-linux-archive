@@ -180,6 +180,8 @@ static void txt_newliner();
 static void gif_seeker(int4 pos);
 static void gif_writer(const char *text, int length);
 
+static long import_file_size();
+static int convert_text_to_raw(char* input_name, char* output_name);
 
 #ifdef BCD_MATH
 #define TITLE "Free42 Decimal"
@@ -235,6 +237,9 @@ static int use_compactmenu = 0;
 static bool decimal_point;
 
 int main(int argc, char *argv[]) {
+    if (argc > 3 && strcmp(argv[1], "-text-to-raw") == 0)
+	exit(convert_text_to_raw(argv[2], argv[3]));
+
     gtk_init(&argc, &argv);
 
     // Capture state of decimal_point, which may have been changed by
@@ -1418,7 +1423,7 @@ static void copyCB() {
 
 static void paste2(GtkClipboard *clip, const gchar *text, gpointer cd) {
     if (text != NULL) {
-        core_paste(text);
+        core_paste(text, false);
         redisplay();
         // GTK will free the text once the callback returns.
     }
@@ -2346,6 +2351,20 @@ int shell_read(char *buf, int4 buflen) {
         return nread;
 }
 
+static long import_file_size() {
+    long size = -1;
+    long offset = ftell(import_file);
+    if(offset == -1) {
+	return -1;
+    }
+    if (fseek(import_file, 0, SEEK_END) != 0)
+	return -1;
+    size = ftell(import_file);
+    if(fseek(import_file, offset, SEEK_SET) != 0)
+	return -1;
+    return size;
+}
+
 void shell_get_time_date(uint4 *time, uint4 *date, int *weekday) {
     struct timeval tv;
     gettimeofday(&tv, NULL);
@@ -2357,4 +2376,48 @@ void shell_get_time_date(uint4 *time, uint4 *date, int *weekday) {
         *date = ((tms.tm_year + 1900) * 100 + tms.tm_mon + 1) * 100 + tms.tm_mday;
     if (weekday != NULL)
         *weekday = tms.tm_wday;
+}
+
+static int convert_text_to_raw(char* input_name, char* output_name) {
+    size_t size;
+    char* buffer;
+    import_file = fopen(input_name, "r");
+    if (import_file == NULL) {
+	int err = errno;
+	fprintf(stderr, "Error opening input file \"%s\": %s (%d)\n",
+		input_name, strerror(err), err);
+	return 1;
+    }
+    size = (size_t)import_file_size();
+    if (size <= 0) {
+	fprintf(stderr, "Error getting size of input file.\n");
+	return 1;
+    }
+    buffer = (char*)malloc(size);
+    if(buffer == NULL) {
+	fprintf(stderr, "Out of memory.\n");
+	fclose(import_file);
+	return 1;
+    }
+    if(shell_read(buffer, (int4)size) != (int)size) {
+	fprintf(stderr, "Error reading file.\n");
+	fclose(import_file);
+	return 1;
+    }
+    fclose(import_file);
+    init_shell_state(-1);
+    core_paste(buffer, true);
+    export_file = fopen(output_name, "w");
+    if (export_file == NULL) {
+	int err = errno;
+	fprintf(stderr, "Could not open \"%s\" for writing:\n%s (%d)",
+		output_name, strerror(err), err);
+	free(buffer);
+	return 1;
+    }
+    int program_index = 0;
+    core_export_programs(1, &program_index);
+    fclose(export_file);
+    free(buffer);
+    return 0;
 }

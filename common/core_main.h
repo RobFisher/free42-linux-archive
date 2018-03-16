@@ -278,7 +278,7 @@ char *core_copy();
  * a plain string.
  * Used by the shell to implement the Paste command.
  */
-void core_paste(const char *s);
+void core_paste(const char *buf, bool programs_only);
 
 /* core_settings
  *
